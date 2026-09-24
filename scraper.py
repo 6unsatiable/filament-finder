@@ -40,7 +40,7 @@ NOT_FILAMENT = re.compile(
     r"gift card|sample pack|swatch|spare part|\bmotor|extruder|\bkit\b(?!.*filament)",
     re.I,
 )
-HARD_EXCLUDE = re.compile(r"pellet|granule|mystery|nozzle|hotend|gift card|\bdryer\b", re.I)
+HARD_EXCLUDE = re.compile(r"pellet|granule|mystery|cutter|assembly|swatch|\bcord\b|cleaning|protection kit|respooler|winder|roller|whiteboard|module|adapter|pei plate|build plate|\bplate\b|track switch|funnel|filament guide|sensor|buffer|\bhub\b|spool holder|nozzle|hotend|gift card|\bdryer\b", re.I)
 REGION_CODES = {"eu", "uk", "au", "ca", "de", "jp", "europe", "canada", "australia", "united kingdom", "other"}
 REGION_BAD = re.compile(r"ship to (?!usa|us\b|united states)|\b(eu|uk|au|ca|europe|canada|australia|de|jp) only\b|pre-?sale|\bmoq\b|\b(eu|uk|au|ca|europe|canada|australia) (warehouse|stock)", re.I)
 
@@ -51,7 +51,64 @@ def fetch_json(url, timeout=20):
         return json.load(r)
 
 
+def fetch_text(url, timeout=30):
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xml"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read().decode("utf-8", "replace")
+
+
+def fetch_bambu(store):
+    """Bambu Lab's store isn't Shopify: read filament pages from the sitemap and parse
+    the schema.org ProductGroup JSON embedded in each page's Next.js payload."""
+    base = store["url"]
+    slugs = re.findall(r"/products/([a-z0-9-]+)</loc>", fetch_text(f"{base}/sitemap_products_1.xml"))
+    slugs = [s for s in dict.fromkeys(slugs)
+             if detect_material(s.replace("-", " ")) or "filament" in s or "support-for" in s]
+
+    def page(slug):
+        try:
+            html = fetch_text(f"{base}/products/{slug}")
+        except Exception:  # noqa: BLE001
+            return None
+        chunks = re.findall(r'self\.__next_f\.push\(\[1,"(.*?)"\]\)', html, re.S)
+        flight = "".join(json.loads(f'"{c}"') for c in chunks) + html
+        m = re.search(r'\{\s*"@context":\s*"https?://schema\.org/?",\s*"@type":\s*"Product(Group)?"', flight)
+        if not m:
+            return None
+        try:
+            d = json.JSONDecoder().raw_decode(flight[m.start():])[0]
+        except ValueError:
+            return None
+        variants = d.get("hasVariant") or [d]
+        name = d.get("name", slug)
+        out_vars = []
+        for v in variants:
+            offer = v.get("offers") or {}
+            if isinstance(offer, list):
+                offer = offer[0] if offer else {}
+            if offer.get("priceCurrency", "USD") != "USD" or offer.get("price") is None:
+                continue
+            vname = v.get("name", "")
+            if vname.startswith(name):
+                vname = vname[len(name):].lstrip(" -")
+            out_vars.append({
+                "id": v.get("sku") or vname, "title": vname or "Default Title",
+                "price": str(offer["price"]), "compare_at_price": None,
+                "available": "InStock" in str(offer.get("availability", "")),
+                "featured_image": {"src": v["image"]} if isinstance(v.get("image"), str) else None,
+                "url": offer.get("url"),
+            })
+        return {"id": d.get("productGroupID") or slug, "title": name, "handle": slug,
+                "product_type": "Filament", "tags": [], "options": [], "images": [],
+                "variants": out_vars}
+
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        return [p for p in ex.map(page, slugs) if p and p["variants"]]
+
+
 def fetch_store(store):
+    if store.get("type") == "bambu":
+        return fetch_bambu(store)
     products = []
     for page in range(1, MAX_PAGES + 1):
         url = f"{store['url']}/products.json?limit=250&page={page}"
@@ -174,7 +231,7 @@ def build_listings(store, products):
                 "product_id": f"{store['name']}:{p['id']}",
                 "variant": "" if vt.lower() == "default title" else vt,
                 "color": color,
-                "url": f"{store['url']}/products/{p['handle']}?variant={v['id']}",
+                "url": v.get("url") or f"{store['url']}/products/{p['handle']}?variant={v['id']}",
                 "image": (fi or {}).get("src") or img_by_id.get(v.get("image_id")) or default_img,
                 "price": price,
                 "compare_at": compare if compare and compare > price else None,

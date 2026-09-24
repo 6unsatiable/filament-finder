@@ -1,6 +1,6 @@
 """Filament Finder: compare 3D printer filament prices across stores.
 
-Run:  python3 server.py [--port 8000] [--refresh-hours 6]
+Run:  python3 server.py [--port 8347] [--refresh-hours 6]
 """
 import argparse
 import json
@@ -156,7 +156,7 @@ class Handler(SimpleHTTPRequestHandler):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--host", default="0.0.0.0")
-    ap.add_argument("--port", type=int, default=8000)
+    ap.add_argument("--port", type=int, default=8347)
     ap.add_argument("--refresh-hours", type=float, default=6)
     args = ap.parse_args()
     if os.path.exists(CACHE):

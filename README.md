@@ -4,7 +4,7 @@ Compares 3D printer filament prices across ~16 online stores, with filters and $
 Pure Python standard library — no dependencies.
 
 ```
-python3 server.py            # http://localhost:8000
+python3 server.py            # http://localhost:8347
 python3 server.py --port 8080 --refresh-hours 12
 ```
 
