@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Filament Finder</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --fg:#1b1f24; --muted:#667085; --line:#e4e7ec; --accent:#2563eb; --good:#15803d; --bad:#b42318; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f1115; --card:#181b21; --fg:#e7e9ee; --muted:#98a2b3; --line:#2a2f38; --accent:#6ea0ff; --good:#4ade80; --bad:#f87171; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:14px 20px; border-bottom:1px solid var(--line); background:var(--card); display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; }
+  header .meta { color:var(--muted); font-size:12px; flex:1; }
+  .layout { display:grid; grid-template-columns:260px 1fr; gap:20px; padding:20px; max-width:1500px; margin:auto; }
+  aside { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; align-self:start; position:sticky; top:12px; max-height:calc(100vh - 24px); overflow:auto; }
+  aside h3 { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:14px 0 6px; }
+  aside h3:first-child { margin-top:0; }
+  label.chk { display:flex; gap:6px; align-items:center; padding:2px 0; cursor:pointer; }
+  label.chk .n { margin-left:auto; color:var(--muted); font-size:12px; }
+  input[type=text], input[type=number], select { width:100%; padding:7px 8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
+  .row2 { display:flex; gap:6px; }
+  button { padding:7px 12px; border-radius:6px; border:1px solid var(--line); background:var(--card); color:var(--fg); cursor:pointer; font:inherit; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+  .toolbar input[type=text] { flex:1; min-width:200px; }
+  .toolbar select { width:auto; }
+  .count { color:var(--muted); }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  th, td { padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:middle; }
+  th { font-size:12px; color:var(--muted); font-weight:600; cursor:pointer; user-select:none; white-space:nowrap; }
+  th.sorted::after { content:" ▲"; } th.sorted.desc::after { content:" ▼"; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  td img { width:48px; height:48px; object-fit:cover; border-radius:6px; background:var(--bg); }
+  a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+  .sub { color:var(--muted); font-size:12px; }
+  .tag { display:inline-block; font-size:11px; padding:1px 6px; border-radius:10px; background:var(--bg); border:1px solid var(--line); margin:1px 2px 0 0; }
+  .ppk { font-weight:700; }
+  .was { color:var(--muted); text-decoration:line-through; font-size:12px; }
+  .oos { color:var(--bad); font-size:12px; }
+  .pager { display:flex; gap:8px; justify-content:center; margin:14px 0; align-items:center; }
+  .status td { padding:3px 6px; border:0; font-size:12px; }
+  @media (max-width: 800px) { .layout { grid-template-columns:1fr; padding:12px; } aside { position:static; max-height:none; } .hide-sm { display:none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧵 Filament Finder</h1>
+  <div class="meta" id="meta">Loading…</div>
+  <button id="refresh">Refresh prices</button>
+</header>
+<div class="layout">
+  <aside>
+    <h3>Material</h3><div id="f-material"></div>
+    <h3>Diameter</h3>
+    <select id="diameter"><option value="">Any</option><option value="1.75" selected>1.75 mm</option><option value="2.85">2.85 / 3 mm</option></select>
+    <h3>Price ($)</h3>
+    <div class="row2"><input type="number" id="min_price" placeholder="min"><input type="number" id="max_price" placeholder="max"></div>
+    <h3>Spool weight (kg)</h3>
+    <div class="row2"><input type="number" id="min_weight" placeholder="min" step="0.1"><input type="number" id="max_weight" placeholder="max" step="0.1"></div>
+    <h3>Options</h3>
+    <label class="chk"><input type="checkbox" id="in_stock" checked> In stock only</label>
+    <label class="chk"><input type="checkbox" id="has_weight" checked> Known weight only</label>
+    <label class="chk"><input type="checkbox" id="group" checked> One row per product</label>
+    <h3>Features</h3><div id="f-feature"></div>
+    <h3>Stores</h3><div id="f-store"></div>
+    <h3>Store status</h3><table class="status" id="status"></table>
+    <p><button id="reset">Reset filters</button></p>
+  </aside>
+  <main>
+    <div class="toolbar">
+      <input type="text" id="q" placeholder="Search (e.g. black silk, polymaker, galaxy)…">
+      <select id="sort">
+        <option value="price_per_kg:asc">$/kg: low → high</option>
+        <option value="price:asc">Price: low → high</option>
+        <option value="price:desc">Price: high → low</option>
+        <option value="discount:asc">Biggest discount</option>
+        <option value="weight:desc">Weight: high → low</option>
+        <option value="name:asc">Name A–Z</option>
+      </select>
+      <span class="count" id="count"></span>
+    </div>
+    <table>
+      <thead><tr>
+        <th class="hide-sm"></th><th data-s="name">Product</th><th data-s="store" class="hide-sm">Store</th>
+        <th class="hide-sm">Material</th><th data-s="weight">Weight</th><th data-s="price">Price</th><th data-s="price_per_kg">$/kg</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="pager"><button id="prev">← Prev</button><span id="page"></span><button id="next">Next →</button></div>
+  </main>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const PAGE = 60;
+let offset = 0, facetsLoaded = false;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function checkboxes(el, name, items) {
+  const prev = new Set([...el.querySelectorAll("input:checked")].map(i => i.value));
+  el.innerHTML = items.map(([v, n]) =>
+    `<label class="chk"><input type="checkbox" name="${name}" value="${esc(v)}" ${prev.has(v) ? "checked" : ""}> ${esc(v)}<span class="n">${n}</span></label>`).join("");
+}
+const checked = name => [...document.querySelectorAll(`input[name=${name}]:checked`)].map(i => i.value);
+
+async function loadFacets() {
+  const f = await (await fetch("/api/facets")).json();
+  checkboxes($("f-material"), "material", f.materials);
+  checkboxes($("f-feature"), "feature", f.features);
+  checkboxes($("f-store"), "store", f.stores);
+  $("status").innerHTML = Object.entries(f.status).map(([s, st]) =>
+    `<tr><td>${st.ok ? "✅" : "⚠️"}</td><td>${esc(s)}</td><td class="sub">${st.ok ? st.listings : esc(st.error)}</td></tr>`).join("");
+  $("meta").textContent = f.refreshing ? `Refreshing prices from ${Object.keys(f.status).length || "all"} stores…`
+    : f.updated ? `${f.total.toLocaleString()} listings · ${f.stores.length} stores · updated ${new Date(f.updated * 1000).toLocaleString()}`
+    : "Fetching prices for the first time (takes ~30s)…";
+  facetsLoaded = true;
+  return f;
+}
+
+function params() {
+  const p = new URLSearchParams();
+  const [sort, order] = $("sort").value.split(":");
+  p.set("sort", sort); p.set("order", order);
+  for (const k of ["q", "diameter", "min_price", "max_price", "min_weight", "max_weight"]) if ($(k).value) p.set(k, $(k).value);
+  for (const k of ["in_stock", "has_weight", "group"]) if ($(k).checked) p.set(k, "1");
+  for (const k of ["material", "feature", "store"]) { const v = checked(k); if (v.length) p.set(k, v.join(",")); }
+  p.set("limit", PAGE); p.set("offset", offset);
+  return p;
+}
+
+async function search() {
+  const p = params();
+  history.replaceState(null, "", "?" + p);
+  const r = await (await fetch("/api/listings?" + p)).json();
+  $("count").textContent = `${r.total.toLocaleString()} results`;
+  $("page").textContent = r.total ? `${offset + 1}–${Math.min(offset + PAGE, r.total)} of ${r.total}` : "";
+  $("prev").disabled = offset === 0; $("next").disabled = offset + PAGE >= r.total;
+  const [sort, order] = $("sort").value.split(":");
+  document.querySelectorAll("th[data-s]").forEach(th => { th.classList.toggle("sorted", th.dataset.s === sort); th.classList.toggle("desc", order === "desc"); });
+  $("rows").innerHTML = r.items.map(it => `<tr>
+    <td class="hide-sm">${it.image ? `<img loading="lazy" src="${esc(it.image + (it.image.includes("?") ? "&" : "?") + "width=96")}" onerror="this.style.visibility='hidden'">` : ""}</td>
+    <td><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.product)}</a>
+      <div class="sub">${esc(it.variant)}${it.variant_count > 1 ? ` · ${it.variant_count} matching variants` : ""}</div>
+      <div>${it.features.map(f => `<span class="tag">${esc(f)}</span>`).join("")}${it.available ? "" : ' <span class="oos">Out of stock</span>'}</div></td>
+    <td class="hide-sm">${esc(it.store)}</td>
+    <td class="hide-sm">${esc(it.material)}<div class="sub">${it.diameter} mm</div></td>
+    <td class="num">${it.weight_kg ? it.weight_kg + " kg" : "?"}</td>
+    <td class="num">$${it.price.toFixed(2)}${it.compare_at ? `<div class="was">$${it.compare_at.toFixed(2)}</div>` : ""}</td>
+    <td class="num ppk">${it.price_per_kg ? "$" + it.price_per_kg.toFixed(2) : "–"}</td></tr>`).join("")
+    || `<tr><td colspan="7" class="sub" style="text-align:center;padding:30px">No matches.</td></tr>`;
+}
+
+let timer;
+const go = () => { offset = 0; clearTimeout(timer); timer = setTimeout(search, 200); };
+document.querySelector("aside").addEventListener("input", go);
+$("q").addEventListener("input", go);
+$("sort").addEventListener("change", go);
+document.querySelectorAll("th[data-s]").forEach(th => th.onclick = () => {
+  const cur = $("sort").value.split(":");
+  const s = th.dataset.s;
+  const order = cur[0] === s && cur[1] === "asc" ? "desc" : "asc";
+  let opt = [...$("sort").options].find(o => o.value === `${s}:${order}`);
+  if (!opt) { opt = new Option(`${th.textContent}: ${order}`, `${s}:${order}`); $("sort").add(opt); }
+  $("sort").value = opt.value; go();
+});
+$("prev").onclick = () => { offset = Math.max(0, offset - PAGE); search(); scrollTo(0, 0); };
+$("next").onclick = () => { offset += PAGE; search(); scrollTo(0, 0); };
+$("reset").onclick = () => { location.search = ""; };
+$("refresh").onclick = async () => { await fetch("/api/refresh", { method: "POST" }); poll(); };
+
+async function poll() {
+  const f = await loadFacets();
+  search();
+  if (f.refreshing || !f.updated) setTimeout(poll, 3000);
+}
+
+// restore filters from URL
+(async () => {
+  const u = new URLSearchParams(location.search);
+  await loadFacets();
+  if ([...u].length) {
+    for (const k of ["q", "diameter", "min_price", "max_price", "min_weight", "max_weight"]) $(k).value = u.get(k) || "";
+    for (const k of ["in_stock", "has_weight", "group"]) $(k).checked = u.get(k) === "1";
+    for (const k of ["material", "feature", "store"]) {
+      const vals = (u.get(k) || "").split(",");
+      document.querySelectorAll(`input[name=${k}]`).forEach(i => i.checked = vals.includes(i.value));
+    }
+    if (u.get("sort")) $("sort").value = `${u.get("sort")}:${u.get("order") || "asc"}`;
+  }
+  poll();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+[
+  {"name": "SUNLU", "url": "https://store.sunlu.com"},
+  {"name": "ELEGOO", "url": "https://us.elegoo.com"},
+  {"name": "Overture", "url": "https://overture3d.com"},
+  {"name": "Polymaker", "url": "https://us.polymaker.com"},
+  {"name": "ERYONE", "url": "https://eryone3d.com"},
+  {"name": "Printed Solid", "url": "https://www.printedsolid.com"},
+  {"name": "Anycubic", "url": "https://store.anycubic.com"},
+  {"name": "JAYO", "url": "https://jayo3d.com"},
+  {"name": "Push Plastic", "url": "https://www.pushplastic.com"},
+  {"name": "Kingroon", "url": "https://kingroon.com"},
+  {"name": "3D-Fuel", "url": "https://www.3dfuel.com"},
+  {"name": "Atomic Filament", "url": "https://www.atomicfilament.com"},
+  {"name": "Amolen", "url": "https://www.amolen.com"},
+  {"name": "Geeetech", "url": "https://geeetech.com"},
+  {"name": "Voxel PLA", "url": "https://www.voxelpla.com"},
+  {"name": "Proto-pasta", "url": "https://www.proto-pasta.com"},
+  {"name": "eSUN", "url": "https://www.esun3dstore.com"}
+]
